@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+	<head>
+		<title>Turgeman and Lailari Calendar</title>
+		<link rel="stylesheet" type="text/css" href="calendarPageStyle.css">
+
+		<script type="text/javascript" src="extensible/Extensible-config.js"></script>
+		<script type="text/javascript" src="remote.js"></script>
+		
+		<script type="text/javascript">
+			var loginForm;
+			var userFunctionsForm;
+			var currentUserName;
+			
+			document.addEventListener("DOMContentLoaded", domLoaded, false);
+			
+			function domLoaded() {
+				document.getElementById("log_in").addEventListener("click",checkLogin,false);
+				document.getElementById("register").addEventListener("click",register,false);
+				document.getElementById("addCalendar").addEventListener("click",addCostumeCalendar,false);
+				document.getElementById("deleteCalendarBtn").addEventListener("click",deleteCalendar,false);
+				document.getElementById("shareEventBtn").addEventListener("click",shareEvent,false);
+				
+				loginForm = document.getElementById("loginRegistrationForm");
+				
+				checkIfAlreadyLogedIn();
+				
+				userFunctionsForm = document.getElementById("userFunctionsForm");
+				document.getElementById("userFunctionsForm").remove();
+				loadCalendarData();
+				
+			}
+			
+			function checkLogin() {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("POST", "backend/login.php", true);
+				xmlHttp.addEventListener("load", checkLoginCallBack, false);
+				var username = document.getElementById("username").value;
+				var password = document.getElementById("password").value;
+				xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xmlHttp.send("username=" + encodeURIComponent(username) + "&password=" + encodeURIComponent(password));
+			}
+			
+			function checkLoginCallBack() {
+				var loginResponse = JSON.parse(event.target.responseText);
+				if (loginResponse.success) {
+					document.getElementById("body").appendChild(userFunctionsForm);
+					document.getElementById("loginRegistrationForm").remove()
+					document.getElementById("helloUser").innerHTML = Ext.String.htmlEncode(loginResponse.username);
+					currentUserName = Ext.String.htmlEncode(loginResponse.username);
+					reloadCalendarData();
+					reloadEventsData();
+					loadUserCalendarsListToDOM();
+					loadUserEventsListToDOM();
+					loadUsersListToDOM();
+				} else {
+					if (loginResponse.tryToLogin) {
+						alert("EROOR: " + loginResponse.message);
+					}
+				}
+			}
+			
+			function checkIfAlreadyLogedIn() {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("POST", "backend/isLogin.php", true);
+				xmlHttp.addEventListener("load", checkLoginCallBack, false);
+				xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xmlHttp.send(null);
+			}
+			
+			function registerCallback() {
+				checkLogin();
+			}
+			
+			function register() {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("POST", "backend/addUser.php", true);
+				xmlHttp.addEventListener("load", registerCallback, false);
+				var username = document.getElementById("username").value;
+				var password = document.getElementById("password").value;
+				xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xmlHttp.send("username=" + encodeURIComponent(username) + "&password=" + encodeURIComponent(password));
+			}
+			
+			function addCostumeCalendar() {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("POST", "backend/addCalendar.php", true);
+				xmlHttp.addEventListener("load", addCostumeCalendarCallBack, false);
+				xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				
+				var calendarName = document.getElementById("calendarName").value;
+				document.getElementById("calendarName").value = "";
+				var calendarColor = document.getElementById("calendarColor").value;
+				document.getElementById("calendarColor").value = "";
+				
+				var sessionToken = document.getElementById("hiddenToekn").value;
+				
+				xmlHttp.send("calendarName=" + encodeURIComponent(calendarName)
+					     + "&calendarColor=" + encodeURIComponent(calendarColor)
+					     + "&token=" + encodeURIComponent(sessionToken));	
+			}
+			function addCostumeCalendarCallBack(event) {
+				
+				var addCostumeCalendarResponse = JSON.parse(event.target.responseText);
+				if (addCostumeCalendarResponse.success) {
+					Extensible.example.msg('Add', 'Added New Calendar "' + Ext.util.Format.htmlEncode(addCostumeCalendarResponse.calendarName) + '"');
+					loadUserCalendarsListToDOM();
+					reloadCalendarData();
+				} else {
+					Extensible.example.msg('ERROR', encodeURIComponent(addCostumeCalendarResponse.message));
+				}
+			}
+			
+			function loadUsersListToDOM() {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("GET", "./backend/app.php/users?", true);
+				xmlHttp.addEventListener("load",
+					function(event)  {
+						var usersListElement = document.getElementById("usersList");
+						usersListElement.innerHTML = "";
+						var usersList = JSON.parse(event.target.responseText);
+						var option;
+						var currentUser;
+						for (var i = 0; i < usersList.length; i++) {
+							currentUser = usersList[i];
+							option = document.createElement("option");
+							option.setAttribute("value", currentUser.id);
+							option.innerHTML = currentUser.userName;
+							usersListElement.appendChild(option);
+						}
+					}		 
+					 , false);
+				xmlHttp.send(null);
+			}
+			
+			
+			
+			function loadUserCalendarsListToDOM() {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("GET", "./backend/app.php/calendars", true);
+				xmlHttp.addEventListener("load", loadUserCalendarsListToDOMCallBack, false);
+				xmlHttp.send(null);
+			}
+			
+			function loadUserCalendarsListToDOMCallBack(event)  {
+				var userCalendarsListElement = document.getElementById("userCalendarsList");
+				userCalendarsListElement.innerHTML = "";
+				var calendarsList = JSON.parse(event.target.responseText).calendars;
+				var option;
+				var currentCalendarName;
+				
+				for (var i = 0; i < calendarsList.length; i++) {
+					currentCalendar = calendarsList[i];
+					option = document.createElement("option");
+					option.setAttribute("value", currentCalendar.id);
+					option.innerHTML = currentCalendar.title;
+					userCalendarsListElement.appendChild(option);
+				}
+			}
+			
+			function loadUserEventsListToDOM() {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("GET", "./backend/app.php/events?", true);
+				xmlHttp.addEventListener("load",
+					function(event)  {
+						var eventsListElement = document.getElementById("userEventsList");
+						eventsListElement.innerHTML = "";
+						var eventsList = JSON.parse(event.target.responseText).data;
+						var option;
+						var currentEvent;
+						for (var i = 0; i < eventsList.length; i++) {
+							currentEvent = eventsList[i];
+							option = document.createElement("option");
+							option.setAttribute("value", currentEvent.id);
+							option.innerHTML = currentEvent.title;
+							eventsListElement.appendChild(option);
+						}
+					}		 
+					 , false);
+				xmlHttp.send(null);
+			}
+			
+			function shareEvent() {
+				var recieverUserElement = document.getElementById("usersList");
+				var recieverUser = recieverUserElement.options[recieverUserElement.selectedIndex].value;
+				
+				var senderEventToShareElement = document.getElementById("userEventsList");
+				var senderEventToShare = senderEventToShareElement.options[senderEventToShareElement.selectedIndex].value;
+				
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("POST", "./backend/shareEvent.php", true);
+				xmlHttp.addEventListener("load", function(event){
+						Extensible.example.msg('Event Shared', "Event was shared!");
+							}
+							 , false);
+				xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				
+				xmlHttp.send("eventId=" + encodeURIComponent(senderEventToShare)
+					     + "&senderUserName=" + encodeURIComponent(currentUserName)
+					     + "&recieverUserId=" + encodeURIComponent(recieverUser));
+			}
+			
+			function deleteCalendar() {
+				var userCalendarsListElement = document.getElementById("userCalendarsList");
+				var calendarIdToDelete = userCalendarsListElement.options[userCalendarsListElement.selectedIndex].value;
+				
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("POST", "./backend/app.php/calendars", true);
+				xmlHttp.addEventListener("load", function(event){
+					reloadCalendarData();
+					reloadEventsData();
+					loadUserCalendarsListToDOM();
+							}
+							 , false);
+				xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				
+				xmlHttp.send("calendarId=" + encodeURIComponent(calendarIdToDelete));
+			}
+			
+			function reloadCalendarData() {
+				Ext.getStore("Calendars").loadData([], false);
+				Ext.getStore("Calendars").load();
+			}
+			
+			function reloadEventsData() {
+				Ext.getStore("Events").loadData([], false);
+				Ext.getStore("Events").load();
+			}
+			
+			
+			function logout() {
+				var xmlHttp = new XMLHttpRequest();
+				xmlHttp.open("POST", "backend/logout.php", true);
+				xmlHttp.addEventListener("load", logoutCallBack, false);
+				xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xmlHttp.send(null);
+			}
+			function logoutCallBack() {
+				reloadCalendarData();
+				reloadEventsData();
+				document.getElementById("userFunctionsForm").remove();
+				document.getElementById("body").appendChild(loginForm);
+			}
+		</script>
+		
+	</head>
+	<body id="body">
+		<div id="cal" class="sample-ct" ></div>
+		
+		<div id="loginRegistrationForm">
+			<label for="username">Username: </label>
+			<input type="text" id="username" required name="username"/>
+			<br/>
+			<label for="password">Password: </label>
+			<input type="password" id="password" required name="password"/>
+			<br/>
+			<button value="login" value="Login" id="log_in">Login</button>
+			<button value="Register" id="register">Register</button>
+		</div>
+		
+		<div id="token" style="display: none;" value="<?php require 'safeSession.php'; startSessionSafe(); echo $_SESSION['token'];?>" />
+		
+		<input type="hidden" name="token" id="hiddenToekn" value="<?php echo $_SESSION['token'];?>" />
+		
+		<div id="userFunctionsForm">
+			
+			<h1>Hello, <span id=helloUser></span> (<a id="logout" href="#" onclick="logout();return false;">Logout</a>)</h1>
+			<h2>Add your own calendar</h2>
+			<label for="calendarName">Calendar Name: </label>
+			<input type="text" id="calendarName" required name="calendarName"/>
+			<br>
+			<label for="calendarColor">Color: </label>
+			<input type="number" id="calendarColor" required />
+			<br/>
+			<button value="addCalendar" id="addCalendar">Add</button>
+			
+			<br/>
+			<h2>Delete your calendar:</h2>
+			<label for="userCalendarsList">Calendar: </label>
+			<select id="userCalendarsList">
+				
+			</select>
+			<br>
+			<button value="deleteCalendar" id="deleteCalendarBtn">Delete Calendar</button>
+			
+			<br>
+			<h2>Share event with a friend</h2>
+			<label for="userEventsList">Event Name: </label>
+			<select id="userEventsList">
+			</select>
+			<br>
+			<label for="usersList">Username: </label>
+			<select id="usersList">
+			</select>
+			<button value="shareEventBtn" id="shareEventBtn">Share</button>
+		</div>
+	</body>
+</html>

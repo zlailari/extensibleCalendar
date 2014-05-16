@@ -1,0 +1,15 @@
+#loginRegistrationForm {
+    border:2px solid #a1a1a1;
+    padding:10px 10px; 
+    background:#dddddd;
+    width:300px;
+    border-radius:25px;
+}
+
+#userFunctionsForm {
+    border:2px solid #a1a1a1;
+    padding:10px 10px; 
+    background:#eedd82;
+    width:400px;
+    border-radius:25px;
+}
